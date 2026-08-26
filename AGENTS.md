@@ -17,6 +17,7 @@
 | 설치·실행 명령 | `README.md` |
 | 개별 작업의 범위·수용 기준·상태 | 해당 GitHub Issue |
 | SSOT·원본 우선순위·보호 경계 | `docs/harness/ssot.md` |
+| 최초 기준·증적·문서화 갭 | `docs/harness/ssot-appendix.md` (해당 정보가 필요할 때만) |
 | 검증 규칙·구현/검증 루프 | 현재 없음 — 추후 생성 |
 | 운영·배포·백업·복구 | 지정 원본 없음 — 추론 금지 |
 
@@ -44,4 +45,4 @@
 
 관련 결과에는 실제로 읽은 자료, 판단 기준, 결론, 확장 사유(있을 때), 충돌 여부, 미확정 사항을 간단히 적는다.
 
-상세 원본 매핑과 보호 경계는 [`docs/harness/ssot.md`](docs/harness/ssot.md)를 참조한다. 단, 모든 질문에서 이 문서를 먼저 읽지는 말고 SSOT·우선순위·충돌 판단이 필요한 경우에만 읽는다.
+상세 원본 매핑과 보호 경계는 [`docs/harness/ssot.md`](docs/harness/ssot.md)를 참조한다. 단, 모든 질문에서 이 문서를 먼저 읽지는 말고 SSOT·우선순위·충돌 판단이 필요한 경우에만 읽는다. 최초 기준·증적·갭 인벤토리는 [`docs/harness/ssot-appendix.md`](docs/harness/ssot-appendix.md)를 해당 정보가 필요할 때만 읽는다.
