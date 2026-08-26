@@ -1,0 +1,131 @@
+name: B5 유지보수 계약
+description: 유지보수 작업의 범위와 종료 조건을 계약서 형태로 작성합니다.
+title: "[B5] "
+labels:
+  - maintenance
+  - contract
+  - b5
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 유지보수 작업 계약
+
+        이 Issue가 이번 작업의 계약 원본입니다(SSOT 4).
+
+        - 요구사항: [SSOT 1](../../docs/01-requirements.md)
+        - 아키텍처: [SSOT 2](../../docs/06-architecture.md)
+        - 하네스 검증 규칙: [SSOT 3](../../docs/harness/02-verification.md)
+        - SSOT와 Issue가 충돌하면 `NEEDS_HUMAN`으로 보류합니다.
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 1. 배경
+      description: |
+        왜 이 유지보수 작업이 필요한지 작성하세요.
+        현재 문제, 영향 범위, 관련 SSOT 또는 GitHub Issue를 포함하세요.
+      placeholder: 현재 문제와 영향을 작성하세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: changes
+    attributes:
+      label: 2. 변경할 내용
+      description: |
+        무엇을 수정하고 무엇을 수정하지 않을지 작성하세요.
+        변경 대상 파일·기능, 변경 내용, 명시적 비범위를 포함하세요.
+      placeholder: 변경 대상과 비범위를 작성하세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: exit_conditions
+    attributes:
+      label: 3. 종료 조건
+      description: |
+        실행해서 참·거짓을 판정할 수 있도록 기준, 수치, 기대 결과를 명시하세요.
+        "수정 완료"나 "정상 동작"처럼 결과를 측정할 수 없는 표현은 사용하지 마세요.
+        각 조건에 확인 방법을 포함하고, 가능하면 Given / When / Then 형식을 사용하세요.
+
+        되는 예:
+        - `npm run verify`가 exit code 0으로 종료된다.
+        - 재고 10개에서 6개를 출고하면 해당 로트 수량이 정확히 4개가 된다.
+        - 만료 로트 0개, 임박 로트 3개가 표시된다.
+
+        안 되는 예:
+        - 기능이 잘 동작한다.
+        - 오류가 해결된다.
+        - 사용하기 편해진다.
+      placeholder: 기준·수치·기대 결과가 있는 조건을 작성하세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: machine_verification
+    attributes:
+      label: 4. 기계 검증
+      description: |
+        종료 조건을 자동으로 판정할 검증 명령과 기대 결과를 작성하세요.
+        표준 검증 계약은 docs/harness/02-verification.md를 따르며,
+        작업별 테스트는 `tests/issues/issue-{Issue 번호}-{기능명}.test.ts`에 추가하세요.
+        테스트 파일은 종료 조건마다 참·거짓을 판정하고, 실행 명령과 기대 exit code를 명시하세요.
+        검증은 개발용 DB가 아닌 격리된 파일 DB에서 실행해야 합니다.
+
+        예:
+        - 테스트 파일: `tests/issues/issue-123-stock-adjustment.test.ts`
+        - 실행 명령: `npm run verify`
+        - 기대 결과: 테스트 통과, exit code 0
+      placeholder: 테스트 파일 경로와 실행 명령·기대 결과를 작성하세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: protected_boundaries
+    attributes:
+      label: 5. 건드리면 안 되는 것
+      description: |
+        변경 금지 범위와 유지해야 할 보호 경계를 작성하세요.
+        보호 경로와 충돌 처리의 기준은 docs/harness/01-ssot.md입니다.
+        변경 금지 파일·디렉터리, 유지할 불변식, DB·운영 데이터 제한,
+        보호 경로 변경 시 PR 승인 필요 여부를 포함하세요.
+      placeholder: 변경 금지 범위와 보호 경계를 작성하세요.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: max_implementation_loops
+    attributes:
+      label: 6. 구현 루프 최대 횟수
+      description: |
+        구현·검증·수정 반복의 최대 횟수를 선택하세요.
+        상한 초과 시 자동 수정을 중단하고 NEEDS_HUMAN으로 보류합니다.
+        이 저장소의 기본 정책은 3회이며, 변경 시 배경과 근거를 설명하세요.
+      options:
+        - "3"
+        - "1"
+        - "2"
+        - "4"
+        - "5"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contract_attestation
+    attributes:
+      label: 계약 확인
+      description: 제출 전에 아래 내용을 확인하세요.
+      options:
+        - label: SSOT 1·2와 SSOT 3의 원본 링크를 확인했습니다.
+          required: true
+        - label: Issue와 SSOT 또는 SSOT 간 충돌이 생기면 NEEDS_HUMAN으로 보류합니다.
+          required: true
+        - label: 검증은 개발용 prisma/dev.db가 아닌 격리된 파일 DB에서 실행합니다.
+          required: true
+        - label: 보호 경로 변경 시 GitHub PR 승인 절차를 따릅니다.
+          required: true
+        - label: 구현 루프 상한을 초과하면 자동 수정을 중단하고 사람에게 판단을 요청합니다.
+          required: true
