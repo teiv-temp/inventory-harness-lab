@@ -1,6 +1,6 @@
 # 02. 검증 실행 계약
 
-> 이 문서는 현재 하네스 골격의 **검증 실행 방법과 단계 계약**을 기록한다. 제품 요구사항은 [`docs/01-requirements.md`](../01-requirements.md), 기술·데이터 경계는 [`docs/06-architecture.md`](../06-architecture.md), SSOT와 보호 정책은 [`ssot.md`](ssot.md)의 책임이다. 이 문서는 해당 규칙을 복제하지 않는다.
+> 이 문서는 현재 하네스 골격의 **검증 실행 방법과 단계 계약**을 기록한다. 제품 요구사항은 [`docs/01-requirements.md`](../01-requirements.md), 기술·데이터 경계는 [`docs/06-architecture.md`](../06-architecture.md), SSOT와 보호 정책은 [`01-ssot.md`](01-ssot.md)의 책임이다. 이 문서는 해당 규칙을 복제하지 않는다.
 
 ## 1. 목적과 범위
 
@@ -20,7 +20,7 @@ npm run verify
 - 실패 시 중단 동작
 - 현재 하네스 골격의 비보장 영역
 
-검증 규칙 자체와 검증 실패 이후의 운영 절차는 SSOT 3이 생성될 때 별도로 정의한다.
+이 문서가 SSOT 3 — 하네스 운영 규칙이며, 검증 실행과 검증 실패 이후의 처리 절차를 소유한다.
 
 ## 2. 전체 실행 순서
 
@@ -87,7 +87,7 @@ Test와 Build가 같은 DB를 공유하지 않으므로 한 단계의 데이터 
 
 ## 5. Protected
 
-Protected의 목적은 [`ssot.md`](ssot.md)가 지정한 보호 경로에 승인되지 않은 변경이 들어가는 것을 막는 것이다. 현재 구현 진입점은 [`scripts/verify-protected.ts`](../../scripts/verify-protected.ts)다.
+Protected의 목적은 [`01-ssot.md`](01-ssot.md)가 지정한 보호 경로에 승인되지 않은 변경이 들어가는 것을 막는 것이다. 현재 구현 진입점은 [`scripts/verify-protected.ts`](../../scripts/verify-protected.ts)다.
 
 현재 검사 대상 보호 경로:
 
@@ -156,6 +156,10 @@ CI에서는 `verify-protected.ts`가 PR 이벤트의 승인 상태 또는 `main`
 - `finally`에서 임시 검증 DB를 정리한다.
 - Protected 실패 시 Types·Lint·Architecture Check·Test·Build는 실행하지 않는다.
 - 보호 경로 승인 실패는 `NEEDS_HUMAN`으로 표시한다.
+- 실패 원인이 현재 원본만으로 판단되지 않으면 임의로 수정하지 않고, 관련 원본과 오류를 기록한 뒤 사람에게 판단을 요청한다.
+- 사람의 명시적 결정이나 수정 요청이 반영된 뒤에만 해당 작업을 재개한다.
+
+검증 규칙으로 판단할 수 없는 사항, 원본 간 충돌, 승인 범위가 불명확한 사항은 자동 통과시키지 않는다. 해당 상태는 `NEEDS_HUMAN`으로 보고하고, 사람의 판단 전까지 구현·문서 수정·데이터 변경·완료 선언을 보류한다.
 
 ## 9. 현재 한계와 비보장
 
@@ -169,4 +173,4 @@ CI에서는 `verify-protected.ts`가 PR 이벤트의 승인 상태 또는 `main`
 - Protected의 동적·별칭·raw SQL 우회 경로 전부 탐지
 - GitHub 저장소의 branch protection 필수 체크 설정
 
-Protected 승인 정책과 보호 경로의 권위는 [`ssot.md`](ssot.md)를 따른다. 구현과 문서가 다르면 차이를 숨기지 않고 보고한다.
+Protected 승인 정책과 보호 경로의 권위는 [`01-ssot.md`](01-ssot.md)를 따른다. 구현과 문서가 다르면 차이를 숨기지 않고 보고한다.

@@ -8,7 +8,7 @@
 |---|---|---|
 | SSOT 1 — 요구사항 | 이 프로그램은 무엇을 해야 하는가 | [`docs/01-requirements.md`](../01-requirements.md) |
 | SSOT 2 — 아키텍처 | 어떤 구조와 경계를 지켜야 하는가 | [`docs/06-architecture.md`](../06-architecture.md) |
-| SSOT 3 — 하네스 운영 규칙 | 검증 실패 이후 어떻게 처리하는가 | 추후 생성 |
+| SSOT 3 — 하네스 운영 규칙 | 검증 실패 이후 어떻게 처리하는가 | [`02-verification.md`](02-verification.md) | 검증 실행 계약과 실패 처리의 원본 |
 | SSOT 4 — 이번 작업 계약 | 이번 Issue에서 무엇을 바꾸는가 | 해당 [GitHub Issue](https://github.com/teiv-temp/inventory-harness-lab/issues) |
 
 현재 등록된 GitHub Issue가 없으면 SSOT 4는 `Issue 미지정`이다. PR·커밋은 Issue를 대체하지 않는다.
@@ -20,7 +20,7 @@
 | 제품 요구사항·범위·완료 기준·재고 도메인 | [`docs/01-requirements.md`](../01-requirements.md) |
 | 기술·데이터·트랜잭션·아키텍처 | [`docs/06-architecture.md`](../06-architecture.md) |
 | 개별 작업 범위·수용 기준·상태 | 해당 GitHub Issue |
-| 하네스 운영 규칙·검증 실패 처리 | 추후 생성 |
+| 하네스 운영 규칙·검증 실패 처리 | [`02-verification.md`](02-verification.md) |
 | 검증 실행 수단 | [`scripts/verify/`](../../scripts/verify/) |
 | 현재 상태·미구현·다음 작업 | [`docs/HANDOVER.md`](../HANDOVER.md) |
 | 사용자·업무 흐름 | [`docs/02-personas.md`](../02-personas.md), [`docs/03-scenarios.md`](../03-scenarios.md) |
@@ -50,7 +50,7 @@ Protected는 아래 SSOT 및 에이전트 진입점의 변경을 검사한다.
 
 승인되지 않은 보호 경로 변경은 `NEEDS_HUMAN` 상태로 중단한다. 사람은 GitHub PR에서 변경 내용을 검토·승인한 후 검증을 다시 실행한다.
 
-라우팅된 원본으로 판단할 수 없을 때만 필요한 보조 자료를 읽는다. 최초부터 모든 문서를 읽지 않는다. 증적·최초 기준·후속 변경·갭이 필요할 때만 [`ssot-appendix.md`](ssot-appendix.md)를 읽는다.
+라우팅된 원본으로 판단할 수 없을 때만 필요한 보조 자료를 읽는다. 최초부터 모든 문서를 읽지 않는다.
 
 ## 2. 충돌 처리와 보호 경계
 
@@ -66,7 +66,7 @@ Protected는 아래 SSOT 및 에이전트 진입점의 변경을 검사한다.
 
 - 한 책임의 규칙은 해당 SSOT에만 기록한다. 다른 문서에는 복제하지 말고 링크한다.
 - 도메인 정책은 SSOT 1, 기술 경계는 SSOT 2, 작업 범위는 SSOT 4가 소유한다.
-- SSOT 3(하네스 운영 규칙)과 검증·구현 루프는 현재 `추후 생성`이며, 기존 계획·테스트 기록을 새 규칙으로 승격하지 않는다.
+- SSOT 3(하네스 운영 규칙)은 [`02-verification.md`](02-verification.md)가 소유한다. 기존 계획·테스트 기록을 새 규칙으로 승격하지 않는다.
 - 원본이 없거나 충돌이 해소되지 않으면 임의로 보완하지 않고 `NEEDS_HUMAN`, `미정`, `확인 필요` 중 적절한 상태로 보고한다.
 - 이 문서는 원본의 상세 요구사항·아키텍처·검증 결과·운영 절차를 소유하지 않는다. 해당 정보는 필요할 때만 원본 또는 부록에서 읽는다.
 
@@ -79,7 +79,3 @@ Protected는 아래 SSOT 및 에이전트 진입점의 변경을 검사한다.
 | `Issue 미지정` | 작업 계약이 될 Issue가 없음 |
 | `미구현` | 요구사항 또는 계획에는 있으나 구현되지 않음 |
 | `없음(정상)` | 현재 등록 대상이 없는 정상 상태 |
-
-### 참조
-
-최초 기준 커밋, 후속 변경, 검증 증적, 원본 부재·갭은 필요할 때만 [`ssot-appendix.md`](ssot-appendix.md)에서 확인한다.
