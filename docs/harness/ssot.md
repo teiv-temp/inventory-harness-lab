@@ -21,11 +21,34 @@
 | 기술·데이터·트랜잭션·아키텍처 | [`docs/06-architecture.md`](../06-architecture.md) |
 | 개별 작업 범위·수용 기준·상태 | 해당 GitHub Issue |
 | 하네스 운영 규칙·검증 실패 처리 | 추후 생성 |
+| 검증 실행 수단 | [`scripts/verify/`](../../scripts/verify/) |
 | 현재 상태·미구현·다음 작업 | [`docs/HANDOVER.md`](../HANDOVER.md) |
 | 사용자·업무 흐름 | [`docs/02-personas.md`](../02-personas.md), [`docs/03-scenarios.md`](../03-scenarios.md) |
 | UI·접근성·반응형 | [`docs/05-design.md`](../05-design.md) |
 | 기존 구현 계획·마일스톤 | [`docs/07-plan.md`](../07-plan.md) |
 | 설치·실행 안내 | [`README.md`](../../README.md) |
+
+### Protected 보호 경로
+
+Protected는 아래 SSOT 및 에이전트 진입점의 변경을 검사한다.
+
+- `docs/01-requirements.md`
+- `docs/06-architecture.md`
+- `docs/harness/`
+- `AGENTS.md`
+- `CLAUDE.md`
+
+### Protected 승인 방법
+
+- 보호 경로를 변경할 때는 GitHub Pull Request를 사용한다.
+- Protected는 PR의 변경 범위와 현재 head 커밋을 확인한다.
+- PR 작성자가 아닌 사람이 현재 head 커밋에 `APPROVED` 리뷰를 남겨야 통과한다. 작성자 자기 승인은 인정하지 않는다.
+- 승인 후 head 커밋이 바뀌면 이전 승인은 유효하지 않으며, 새 head에 대한 승인이 필요하다.
+- PR 정보나 리뷰 상태를 확인할 수 없으면 `NEEDS_HUMAN`으로 실패한다(fail-closed).
+- 보호 경로 변경이 없으면 사람 승인 없이 통과한다.
+- 로컬과 CI는 동일한 보호 경로·base/head·승인 조건을 사용한다. 로컬에서는 현재 브랜치의 GitHub PR 리뷰를 조회하고, CI에서는 이벤트의 PR과 GitHub 리뷰를 조회한다.
+
+승인되지 않은 보호 경로 변경은 `NEEDS_HUMAN` 상태로 중단한다. 사람은 GitHub PR에서 변경 내용을 검토·승인한 후 검증을 다시 실행한다.
 
 라우팅된 원본으로 판단할 수 없을 때만 필요한 보조 자료를 읽는다. 최초부터 모든 문서를 읽지 않는다. 증적·최초 기준·후속 변경·갭이 필요할 때만 [`ssot-appendix.md`](ssot-appendix.md)를 읽는다.
 

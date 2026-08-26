@@ -22,6 +22,11 @@ export function daysUntil(target: Date): number {
   return Math.round((dateOnly(target).getTime() - today().getTime()) / MS)
 }
 
+/** 현재 시각 기준으로 경과한 24시간 단위 일수 */
+export function daysSince(date: Date, now = Date.now()): number {
+  return Math.floor((now - date.getTime()) / 86_400_000)
+}
+
 /** 2026-11-30 형식 */
 export function formatDate(d: Date): string {
   return dateOnly(d).toISOString().slice(0, 10)

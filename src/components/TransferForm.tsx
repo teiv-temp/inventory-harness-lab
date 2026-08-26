@@ -33,6 +33,7 @@ export function TransferForm({
   const [cart, setCart] = useState<{ product: PickProduct; qty: number }[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [now] = useState(() => Date.now())
 
   const stockOf = useMemo(
     () => (productId: number) =>
@@ -97,7 +98,7 @@ export function TransferForm({
                 {previewOf(current.id, Number(qty)).map((a) => {
                   const lot = lots.find((l) => l.id === a.lotId)!
                   const days = Math.round(
-                    (new Date(a.expiryDate).getTime() - Date.now()) / 86_400_000
+                    (new Date(a.expiryDate).getTime() - now) / 86_400_000
                   )
                   const risky = days <= lot.alertDays
                   return (
