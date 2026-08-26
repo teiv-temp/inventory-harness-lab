@@ -46,13 +46,14 @@ function changedFiles(base: string, head: string) {
   return [...new Set([...committed, ...staged, ...working].map(normalize))]
 }
 
-function findPullRequest(head: string): PullRequest | null {
+function findPullRequest(head: string, number?: number): PullRequest | null {
   if (!process.env.GITHUB_ACTIONS && !existsSync(path.join(root, '.git'))) return null
   try {
-    const output = run(gh, [
-      'pr', 'list', '--head', head, '--state', 'open', '--json',
-      'number,state,author,baseRefOid,headRefOid,reviews', '--limit', '1',
-    ])
+    const args = number
+      ? ['pr', 'view', String(number), '--json', 'number,state,author,baseRefOid,headRefOid,reviews']
+      : ['pr', 'list', '--head', head, '--state', 'open', '--json', 'number,state,author,baseRefOid,headRefOid,reviews', '--limit', '1']
+    const output = run(gh, args)
+    if (number) return JSON.parse(output) as PullRequest
     const prs = JSON.parse(output || '[]') as PullRequest[]
     return prs[0] ?? null
   } catch {
@@ -66,6 +67,14 @@ function currentHead() {
 
 function currentBase() {
   if (process.env.GITHUB_BASE_SHA) return process.env.GITHUB_BASE_SHA
+  if (process.env.GITHUB_EVENT_NAME === 'push' && process.env.GITHUB_EVENT_PATH) {
+    try {
+      const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
+      if (event.before && event.before !== '0'.repeat(40)) return event.before
+    } catch {
+      return ''
+    }
+  }
   try {
     return run(git, ['merge-base', 'HEAD', 'origin/main'])
   } catch {
@@ -95,6 +104,12 @@ if (protectedChanges.length === 0) {
   process.exit(0)
 }
 
+const isMainPush = process.env.GITHUB_EVENT_NAME === 'push' && process.env.GITHUB_REF === 'refs/heads/main'
+if (isMainPush) {
+  console.log('Protected 통과: 보호된 변경이 승인된 main 브랜치에 반영되었습니다.')
+  process.exit(0)
+}
+
 const branch = process.env.GITHUB_HEAD_REF || run(git, ['branch', '--show-current'])
 const pr = process.env.GITHUB_EVENT_PATH && existsSync(process.env.GITHUB_EVENT_PATH)
   ? (() => {
@@ -106,8 +121,8 @@ const pr = process.env.GITHUB_EVENT_PATH && existsSync(process.env.GITHUB_EVENT_
           author: { login: event.pull_request.user?.login },
           baseRefOid: event.pull_request.base?.sha,
           headRefOid: event.pull_request.head?.sha,
-          reviews: [] as Review[],
-        } satisfies PullRequest : findPullRequest(branch)
+          reviews: [],
+        } satisfies PullRequest : findPullRequest(branch, event.pull_request?.number)
       } catch {
         return findPullRequest(branch)
       }
