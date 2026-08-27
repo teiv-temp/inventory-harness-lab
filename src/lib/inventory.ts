@@ -134,20 +134,35 @@ export async function getTodos() {
   }
 }
 
-/** 임박·만료 건수 (필터 칩에 표시) */
-export async function getExpiryCounts() {
-  const lots = await db.lot.findMany({
-    where: { quantity: { gt: 0 } },
-    include: { product: true },
-  })
+/** 목록의 대표 로트와 같은 기준으로 임박·만료 상품 수를 센다 (필터 칩에 표시) */
+export function countExpiryStatuses(
+  products: {
+    expiryAlertDays: number
+    lots: { expiryDate: Date; quantity: number; location: { type: string } }[]
+  }[],
+) {
   let soon = 0
   let expired = 0
-  for (const l of lots) {
-    const s = expiryStatus(l.expiryDate, l.product.expiryAlertDays)
-    if (s === 'SOON') soon++
-    if (s === 'EXPIRED') expired++
+  for (const product of products) {
+    const head = product.lots
+      .filter((lot) => (AVAILABLE_LOCATION_TYPES as string[]).includes(lot.location.type))
+      .sort((a, b) => a.expiryDate.getTime() - b.expiryDate.getTime() || b.quantity - a.quantity)[0]
+    if (!head) continue
+    const status = expiryStatus(head.expiryDate, product.expiryAlertDays)
+    if (status === 'SOON') soon++
+    if (status === 'EXPIRED') expired++
   }
   return { soon, expired }
+}
+
+export async function getExpiryCounts() {
+  const products = await db.product.findMany({
+    where: { isActive: true },
+    include: {
+      lots: { where: { quantity: { gt: 0 } }, include: { location: true } },
+    },
+  })
+  return countExpiryStatuses(products)
 }
 
 export async function getLocations() {
