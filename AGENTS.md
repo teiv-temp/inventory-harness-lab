@@ -18,7 +18,7 @@
 | 개별 작업의 범위·수용 기준·상태 | 해당 GitHub Issue |
 | SSOT·원본 우선순위·보호 경계 | `docs/harness/01-ssot.md` |
 | 검증 실행·실패 처리 | `docs/harness/02-verification.md` |
-| 구현·검증 반복·사람 개입·PR/CI 전환 | `docs/harness/03-loop.md` |
+| 구현·검증·PR/CI 루프·사람 개입 | `docs/harness/03-loop.md` |
 | 운영·배포·백업·복구 | 지정 원본 없음 — 추론 금지 |
 
 ## 읽기 순서
