@@ -1,8 +1,8 @@
-# 02. 검증 실행 계약
+# 검증 실행 계약
 
-> 이 문서는 현재 하네스 골격의 **검증 실행 방법과 단계 계약**을 기록한다. 제품 요구사항은 [`docs/01-requirements.md`](../01-requirements.md), 기술·데이터 경계는 [`docs/06-architecture.md`](../06-architecture.md), SSOT와 보호 정책은 [`01-ssot.md`](01-ssot.md)의 책임이다. 이 문서는 해당 규칙을 복제하지 않는다.
+> 이 문서는 검증의 실행 순서와 실패 처리를 소유한다. Protected의 보호 경계와 승인 원칙은 [`01-ssot.md`](01-ssot.md)가 소유한다.
 
-## 1. 목적과 범위
+## 1. 단일 진입점과 순서
 
 검증의 단일 진입점은 다음 명령이다.
 
@@ -10,21 +10,7 @@
 npm run verify
 ```
 
-이 명령은 기존 로컬 개발 DB를 사용하지 않고, 실행마다 동일한 migration과 seed로 격리된 SQLite DB를 준비한 뒤 정적 검사·테스트·빌드를 순서대로 실행한다. 어느 단계라도 실패하면 이후 단계를 실행하지 않고 실패 코드로 종료한다.
-
-이 문서가 다루는 범위는 다음과 같다.
-
-- 검증 단계의 순서와 각 단계의 진입점
-- 로컬 검증 DB 격리와 정리
-- GitHub Actions 실행 조건
-- 실패 시 중단 동작
-- 현재 하네스 골격의 비보장 영역
-
-이 문서가 SSOT 3 — 하네스 운영 규칙이며, 검증 실행과 검증 실패 이후의 처리 절차를 소유한다.
-
-## 2. 전체 실행 순서
-
-`npm run verify`는 다음 순서를 보장한다.
+실행 순서는 다음과 같다.
 
 ```text
 Protected
@@ -37,74 +23,58 @@ Protected
 → Build
 ```
 
-`Protected`가 먼저 실행되며, 보호 경로 변경이 승인되지 않았거나 승인 상태를 확인할 수 없으면 `NEEDS_HUMAN`으로 종료한다. Protected 성공 후에만 `scripts/verify.ts`가 시작된다.
+`npm run verify`는 `verify:protected`를 먼저 실행하고, 성공한 경우에만 `scripts/verify.ts`를 실행한다. Protected 또는 뒤 단계가 실패하면 이후 단계는 실행하지 않는다.
+
+## 2. Protected 실행 계약
+
+Protected는 [`01-ssot.md`](01-ssot.md)의 보호 경계와 사람 승인 정책을 기계적으로 판정한다. 구현 진입점은 [`scripts/verify-protected.ts`](../../scripts/verify-protected.ts)다.
+
+- 보호 경로 변경이 없으면 GitHub 조회 없이 통과한다.
+- 보호 경로 변경이 있으면 선택된 `base`와 `source head`의 커밋 diff만을 검사한다. staged 또는 working-tree 변경은 CI 판정에 섞지 않는다.
+- Pull Request 이벤트에서는 event payload의 `pull_request.base.sha`, `pull_request.head.sha`, `pull_request.number`를 사용한다. `GITHUB_SHA`가 가리킬 수 있는 synthetic merge 커밋을 source head로 사용하지 않는다.
+- PR 리뷰는 event payload에 의존하지 않고 GitHub에서 다시 조회한다.
+- PR이 열려 있고 base/head가 일치하며, 현재 source head에 연결된 사람 승인과 `Protected-Scope: ...` 범위가 실제 보호 변경을 포함해야 통과한다.
+- 승인 리뷰의 최신 상태가 아니거나, 승인자가 PR 작성자·봇·앱·AI·자동화 계정이거나, 범위·commit·신원 정보를 확인할 수 없으면 실패한다.
+- 사람의 명시적 지시는 수정 허용 범위이고 최종 CI 승인과 다르다. 사람이 직접 남긴 승인 리뷰만 최종 승인 기록이다. AI와 CI는 승인 기록을 생성·수정·대체하지 않는다.
+- 승인 범위 밖 변경, 승인 누락, 오래된 head, 조회·파싱 실패는 모두 `NEEDS_HUMAN`으로 fail-closed 처리한다.
+- `main`에 push되었다는 사실만으로 보호 경로 변경을 우회하지 않는다. post-merge push에서 승인 증거를 확인할 수 없으면 실패한다.
+
+로컬과 CI는 같은 보호 경로 정규화, committed diff, PR/head, 리뷰 상태 규칙을 사용한다. 로컬은 열린 PR을 명확히 찾지 못하면 보호 변경을 자동 통과시키지 않는다.
+
+승인 리뷰의 예시는 다음과 같다.
+
+```text
+Protected-Scope: docs/harness/02-verification.md,docs/harness/01-ssot.md
+Reason: 보호정책 실행 계약을 사람의 요청 범위에서 정리
+```
+
+리뷰 본문·PR 본문·라벨·커밋 메시지는 사람이 직접 남긴 승인이라는 사실을 단독으로 증명하지 않는다. 범위는 기계 판정을 위한 보조 정보이며, 사람 계정 지정과 리뷰 상태·commit 검증은 GitHub 권한 설정과 함께 적용한다.
 
 ## 3. 단계별 실행 계약
 
 | 단계 | 실행 진입점 | 책임 | 실패 시 |
 |---|---|---|---|
-| Protected | `npm run verify:protected` → `scripts/verify-protected.ts` | SSOT 보호 경로 변경과 승인 상태 확인 | 즉시 종료 |
-| Prepare | `scripts/verify.ts` 내부 `prepare()` | 임시 DB에 migration·Prisma generate·seed 적용 | 이후 단계 미실행 |
-| Types | `npm exec tsc -- --noEmit` | TypeScript 타입 검사 | Lint 이하 미실행 |
-| Lint | `npm run lint` | ESLint 검사 | Architecture Check 이하 미실행 |
-| Architecture Check | `npm run architecture-check` | 재고 변경 단일 통로의 정적 검사 | Test 이하 미실행 |
+| Protected | `npm run verify:protected` | 보호 경로·현재 head·사람 승인 범위 확인 | 즉시 종료, `NEEDS_HUMAN` |
+| Prepare | `scripts/verify.ts` 내부 | 격리 test DB에 migration·generate·seed 적용 | 이후 단계 미실행 |
+| Types | `npm exec tsc -- --noEmit` | TypeScript 타입 검사 | 이후 단계 미실행 |
+| Lint | `npm run lint` | ESLint 검사 | 이후 단계 미실행 |
+| Architecture Check | `npm run architecture-check` | 재고 변경 단일 통로 정적 검사 | 이후 단계 미실행 |
 | Test | `npm test` | Vitest 자동 테스트 | Build 미실행 |
-| Prepare | `scripts/verify.ts` 내부 `prepare()` | 별도 빌드 DB에 동일한 초기 상태 준비 | Build 미실행 |
-| Build | `npm run build` | Prisma generate 및 Next.js production build | 실패 코드 반환 |
+| Prepare | `scripts/verify.ts` 내부 | 별도 build DB 준비 | Build 미실행 |
+| Build | `npm run build` | production build | 실패 코드 반환 |
 
-각 단계는 기존 npm script 또는 기존 도구를 재사용한다. `verify`가 개별 검증 규칙을 새로 정의하거나 기존 도메인 정책을 대신 소유하지 않는다.
+## 4. 실패 처리
 
-## 4. Issue 종료 조건의 기계 검증
+- 하위 명령의 non-zero 종료 코드는 상위 실행기로 전달한다.
+- 앞 단계가 실패하면 뒤 단계는 실행하지 않는다.
+- Protected의 PR·리뷰·범위·commit·신원 확인 실패는 자동 통과시키지 않고 `NEEDS_HUMAN`으로 보고한다.
+- 검증 규칙으로 판단할 수 없거나 원본 간 충돌이 있으면 임의 수정하지 않고 사람에게 판단을 요청한다.
+- 일반 구현 검증 실패는 원인을 수정한 뒤 다시 실행할 수 있지만, 보호 승인 부족과 SSOT 충돌은 자동 반복하지 않는다.
+- `scripts/verify.ts`는 `finally`에서 실행별 임시 DB를 정리한다.
 
-각 유지보수 Issue의 종료 조건은 실행 가능한 테스트로 판정할 수 있어야 한다. Issue마다 종료 조건을 검증하는 테스트를 다음 규칙으로 추가한다.
+## 5. DB 격리
 
-```text
-tests/issues/issue-{Issue 번호}-{기능명}.test.ts
-```
-
-- 테스트 파일의 각 케이스는 Issue에 적힌 종료 조건 하나 이상을 명시적으로 판정한다.
-- 테스트는 기대값·수치·상태를 assertion으로 검증한다. 단순 로그 출력이나 사람이 읽는 설명만으로 종료 조건을 충족했다고 보지 않는다.
-- Issue의 `기계 검증` 항목에는 테스트 파일 경로, 실행 명령, 기대 exit code를 기록한다.
-- 표준 전체 검증 명령은 `npm run verify`이며, 작업별 테스트도 이 검증 흐름에서 실행될 수 있어야 한다.
-- 테스트는 개발·시연용 `prisma/dev.db`가 아닌 격리된 파일 DB를 사용한다.
-- 테스트 파일이 없거나 종료 조건과 테스트의 대응이 확인되지 않으면 해당 Issue를 완료로 판정하지 않는다.
-
-예:
-
-```text
-Issue #123의 종료 조건:
-재고 10개에서 6개를 출고하면 해당 로트 수량이 4개여야 한다.
-
-테스트:
-tests/issues/issue-123-stock-adjustment.test.ts
-
-실행:
-npm run verify
-
-기대 결과:
-exit code 0, 해당 assertion 통과
-```
-
-## 5. Prepare와 DB 격리
-
-구체적인 검증 실패 처리와 구현 루프 상한은 이 문서의 실패 처리·구현 루프 절을 따른다. 제품 요구사항·아키텍처의 의미는 각각의 SSOT 원본을 따른다.
-
-### 5.1 개발 DB 보호
-
-검증은 개발·시연용 `prisma/dev.db`를 수정하거나 삭제하지 않는다. `.env`에 기존 `DATABASE_URL`이 있더라도 `verify`의 하위 프로세스에는 실행별 임시 DB URL을 전달한다.
-
-`:memory:` SQLite는 사용하지 않는다. 테스트가 여러 Prisma 연결을 사용하므로 파일 기반 DB가 동일한 연결 간 상태를 공유할 수 있다.
-
-### 5.2 실행별 DB
-
-`scripts/verify.ts`는 운영체제의 임시 디렉터리 아래 실행별 디렉터리를 만들고, 다음 두 DB를 분리한다.
-
-```text
-<temporary>/inventory-verify-<run>/test/verify.db
-<temporary>/inventory-verify-<run>/build/verify.db
-```
-
-각 DB에는 동일하게 다음을 적용한다.
+검증은 개발·시연용 `prisma/dev.db`를 수정하거나 삭제하지 않는다. 실행별 임시 디렉터리 아래 test/build용 파일 DB를 따로 만들고 다음을 적용한다.
 
 ```text
 prisma migrate deploy
@@ -112,237 +82,16 @@ prisma generate
 tsx prisma/seed.ts
 ```
 
-Test와 Build가 같은 DB를 공유하지 않으므로 한 단계의 데이터 변경이 다른 단계에 영향을 주지 않는다. 실행이 성공하거나 실패해도 임시 디렉터리는 정리한다.
+`:memory:` SQLite는 사용하지 않는다. Test와 Build는 서로 다른 DB를 사용하며 실행 종료 시 임시 디렉터리를 정리한다.
 
-### 5.3 환경 전달
+## 6. GitHub Actions
 
-`DATABASE_URL`은 셸 전역을 변경하지 않고 각 하위 프로세스의 환경으로 전달한다. Windows에서는 `npm.cmd`와 `npx.cmd`를 사용하며, DB 파일 삭제는 Node `fs` API로 처리한다.
+`.github/workflows/verify.yml`은 모든 Pull Request와 `main` 대상 push에서 실행한다.
 
-## 6. Protected
+1. 전체 Git 이력을 checkout한다.
+2. Node.js 20을 설정한다.
+3. `npm ci`를 실행한다.
+4. `SESSION_SECRET`과 PR의 base/head/number를 Protected에 전달한다.
+5. `npm run verify`를 실행한다.
 
-Protected의 목적은 [`01-ssot.md`](01-ssot.md)가 지정한 보호 경로에 승인되지 않은 변경이 들어가는 것을 막는 것이다. 현재 구현 진입점은 [`scripts/verify-protected.ts`](../../scripts/verify-protected.ts)다.
-
-현재 검사 대상 보호 경로:
-
-- `docs/01-requirements.md`
-- `docs/06-architecture.md`
-- `docs/harness/`
-- `AGENTS.md`
-- `CLAUDE.md`
-
-승인 방법은 SSOT에 정의된 GitHub Pull Request 승인이다.
-
-- 보호 경로 변경이 없으면 승인 없이 통과한다.
-- 보호 경로 변경이 있으면 PR이 열려 있어야 한다.
-- PR 작성자가 아닌 사람의 현재 head 커밋에 대한 `APPROVED` 리뷰가 필요하다.
-- 승인 후 head 커밋이 바뀌면 다시 승인해야 한다.
-- PR 또는 리뷰 상태를 확인할 수 없으면 통과시키지 않고 `NEEDS_HUMAN`으로 실패한다.
-
-Protected는 변경 범위 계산과 승인 상태 확인만 담당한다. 도메인 테스트, 타입 검사, 린트, 빌드는 후속 단계가 담당한다.
-
-## 7. Architecture Check
-
-[`scripts/architecture-check.ts`](../../scripts/architecture-check.ts)는 `src` 아래 production TypeScript/TSX를 TypeScript AST로 검사한다.
-
-- `src/lib/stock.ts`만 `lot`·`movement` mutation 허용 파일이다.
-- `create`, `createMany`, `update`, `updateMany`, `upsert`, `delete`, `deleteMany` 직접 호출을 검사한다.
-- 테스트·선언 파일·`src/generated`는 제외한다.
-- 조회 호출과 주석·문자열은 검사하지 않는다.
-- 위반 시 파일·행·열과 `applyMovement()` 사용 안내를 출력하고 실패한다.
-
-이 검사는 정적 패턴 기반이므로 별칭, 동적/계산된 접근, raw SQL 등 모든 우회 경로를 보장하지 않는다.
-
-## 8. 로컬과 GitHub Actions
-
-### 로컬
-
-저장소 루트에서 다음을 실행한다.
-
-```bash
-npm run verify
-```
-
-실행마다 격리된 test/build DB가 생성되고 종료 후 정리된다. 개발 서버와 개발 DB는 이 검증에 사용하지 않는다.
-
-### GitHub Actions
-
-`.github/workflows/verify.yml`은 다음 이벤트에서 실행된다.
-
-- 모든 Pull Request 이벤트
-- `main` 브랜치에 대한 push
-
-Actions는 다음을 수행한다.
-
-1. 전체 Git 이력 checkout (`fetch-depth: 0`)
-2. Node.js 20 설정
-3. `npm ci`
-4. 테스트용 `SESSION_SECRET`을 설정하고 `npm run verify`
-
-CI에서는 `verify-protected.ts`가 PR 이벤트의 승인 상태 또는 `main` push의 반영 상태를 확인한 뒤, 통합 검증을 실행한다.
-
-## 9. 실패 처리
-
-현재 실행기는 fail-fast 방식이다.
-
-- 하위 명령의 non-zero 종료 코드는 상위 실행기로 전달된다.
-- 앞 단계가 실패하면 뒤 단계는 실행하지 않는다.
-- `finally`에서 임시 검증 DB를 정리한다.
-- Protected 실패 시 Types·Lint·Architecture Check·Test·Build는 실행하지 않는다.
-- 보호 경로 승인 실패는 `NEEDS_HUMAN`으로 표시한다.
-- 실패 원인이 현재 원본만으로 판단되지 않으면 임의로 수정하지 않고, 관련 원본과 오류를 기록한 뒤 사람에게 판단을 요청한다.
-- 사람의 명시적 결정이나 수정 요청이 반영된 뒤에만 해당 작업을 재개한다.
-
-검증 규칙으로 판단할 수 없는 사항, 원본 간 충돌, 승인 범위가 불명확한 사항은 자동 통과시키지 않는다. 해당 상태는 `NEEDS_HUMAN`으로 보고하고, 사람의 판단 전까지 구현·문서 수정·데이터 변경·완료 선언을 보류한다.
-
-## 10. 구현 루프 상한
-
-유지보수 Issue의 `구현 루프 최대 횟수` 기본값은 **3회**다. 한 루프는 구현 또는 수정 후 `npm run verify`를 실행해 종료 조건을 확인하는 단위다. 지정된 횟수 안에 검증을 통과하지 못하면 AI는 추가 수정을 반복하지 않고 `NEEDS_HUMAN` 상태로 전환한다.
-
-`NEEDS_HUMAN`으로 전환할 때는 실패한 검증 단계, 실행 결과, 시도 횟수, 남은 미해결 사항, 사람에게 요청할 판단을 기록한다. 사람의 명시적 결정이 있기 전까지 해당 작업의 구현·문서 수정·데이터 변경·완료 선언을 보류한다. Issue에 기본값과 다른 상한이 명시되어 있고 SSOT와 충돌하지 않는 경우에만 그 값을 적용한다.
-
-## 11. 현재 한계와 비보장
-
-이 문서는 현재 하네스 골격의 실행 계약만 기록하며 다음을 보장한다고 주장하지 않는다.
-
-- SSOT 3 하네스 운영 규칙의 완성
-- 검증 실패 후 재탐색·수정·재검증 절차
-- 브라우저 기반 전체 QA
-- 외부 서비스·풀필먼트 API 검증
-- 세분화된 권한 운영 검증
-- Protected의 동적·별칭·raw SQL 우회 경로 전부 탐지
-- GitHub 저장소의 branch protection 필수 체크 설정
-
-Protected 승인 정책과 보호 경로의 권위는 [`01-ssot.md`](01-ssot.md)를 따른다. 구현과 문서가 다르면 차이를 숨기지 않고 보고한다.
-
-### 4.1 개발 DB 보호
-
-검증은 개발·시연용 `prisma/dev.db`를 수정하거나 삭제하지 않는다. `.env`에 기존 `DATABASE_URL`이 있더라도 `verify`의 하위 프로세스에는 실행별 임시 DB URL을 전달한다.
-
-`:memory:` SQLite는 사용하지 않는다. 테스트가 여러 Prisma 연결을 사용하므로 파일 기반 DB가 동일한 연결 간 상태를 공유할 수 있다.
-
-### 4.2 실행별 DB
-
-`scripts/verify.ts`는 운영체제의 임시 디렉터리 아래 실행별 디렉터리를 만들고, 다음 두 DB를 분리한다.
-
-```text
-<temporary>/inventory-verify-<run>/test/verify.db
-<temporary>/inventory-verify-<run>/build/verify.db
-```
-
-각 DB에는 동일하게 다음을 적용한다.
-
-```text
-prisma migrate deploy
-prisma generate
-tsx prisma/seed.ts
-```
-
-Test와 Build가 같은 DB를 공유하지 않으므로 한 단계의 데이터 변경이 다른 단계에 영향을 주지 않는다. 실행이 성공하거나 실패해도 임시 디렉터리는 정리한다.
-
-### 4.3 환경 전달
-
-`DATABASE_URL`은 셸 전역을 변경하지 않고 각 하위 프로세스의 환경으로 전달한다. Windows에서는 `npm.cmd`와 `npx.cmd`를 사용하며, DB 파일 삭제는 Node `fs` API로 처리한다.
-
-## 5. Protected
-
-Protected의 목적은 [`01-ssot.md`](01-ssot.md)가 지정한 보호 경로에 승인되지 않은 변경이 들어가는 것을 막는 것이다. 현재 구현 진입점은 [`scripts/verify-protected.ts`](../../scripts/verify-protected.ts)다.
-
-현재 검사 대상 보호 경로:
-
-- `docs/01-requirements.md`
-- `docs/06-architecture.md`
-- `docs/harness/`
-- `AGENTS.md`
-- `CLAUDE.md`
-
-승인 방법은 SSOT에 정의된 GitHub Pull Request 승인이다.
-
-- 보호 경로 변경이 없으면 승인 없이 통과한다.
-- 보호 경로 변경이 있으면 PR이 열려 있어야 한다.
-- PR 작성자가 아닌 사람의 현재 head 커밋에 대한 `APPROVED` 리뷰가 필요하다.
-- 승인 후 head 커밋이 바뀌면 다시 승인해야 한다.
-- PR 또는 리뷰 상태를 확인할 수 없으면 통과시키지 않고 `NEEDS_HUMAN`으로 실패한다.
-
-Protected는 변경 범위 계산과 승인 상태 확인만 담당한다. 도메인 테스트, 타입 검사, 린트, 빌드는 후속 단계가 담당한다.
-
-## 6. Architecture Check
-
-[`scripts/architecture-check.ts`](../../scripts/architecture-check.ts)는 `src` 아래 production TypeScript/TSX를 TypeScript AST로 검사한다.
-
-- `src/lib/stock.ts`만 `lot`·`movement` mutation 허용 파일이다.
-- `create`, `createMany`, `update`, `updateMany`, `upsert`, `delete`, `deleteMany` 직접 호출을 검사한다.
-- 테스트·선언 파일·`src/generated`는 제외한다.
-- 조회 호출과 주석·문자열은 검사하지 않는다.
-- 위반 시 파일·행·열과 `applyMovement()` 사용 안내를 출력하고 실패한다.
-
-이 검사는 정적 패턴 기반이므로 별칭, 동적/계산된 접근, raw SQL 등 모든 우회 경로를 보장하지 않는다.
-
-## 7. 로컬과 GitHub Actions
-
-### 로컬
-
-저장소 루트에서 다음을 실행한다.
-
-```bash
-npm run verify
-```
-
-실행마다 격리된 test/build DB가 생성되고 종료 후 정리된다. 개발 서버와 개발 DB는 이 검증에 사용하지 않는다.
-
-### GitHub Actions
-
-`.github/workflows/verify.yml`은 다음 이벤트에서 실행된다.
-
-- 모든 Pull Request 이벤트
-- `main` 브랜치에 대한 push
-
-Actions는 다음을 수행한다.
-
-1. 전체 Git 이력 checkout (`fetch-depth: 0`)
-2. Node.js 20 설정
-3. `npm ci`
-4. 테스트용 `SESSION_SECRET`을 설정하고 `npm run verify`
-
-CI에서는 `verify-protected.ts`가 PR 이벤트의 승인 상태 또는 `main` push의 반영 상태를 확인한 뒤, 통합 검증을 실행한다.
-
-## 8. 실패 처리
-
-현재 실행기는 fail-fast 방식이다.
-
-- 하위 명령의 non-zero 종료 코드는 상위 실행기로 전달된다.
-- 앞 단계가 실패하면 뒤 단계는 실행하지 않는다.
-- `finally`에서 임시 검증 DB를 정리한다.
-- Protected 실패 시 Types·Lint·Architecture Check·Test·Build는 실행하지 않는다.
-- 보호 경로 승인 실패는 `NEEDS_HUMAN`으로 표시한다.
-- 실패 원인이 현재 원본만으로 판단되지 않으면 임의로 수정하지 않고, 관련 원본과 오류를 기록한 뒤 사람에게 판단을 요청한다.
-- 사람의 명시적 결정이나 수정 요청이 반영된 뒤에만 해당 작업을 재개한다.
-
-검증 규칙으로 판단할 수 없는 사항, 원본 간 충돌, 승인 범위가 불명확한 사항은 자동 통과시키지 않는다. 해당 상태는 `NEEDS_HUMAN`으로 보고하고, 사람의 판단 전까지 구현·문서 수정·데이터 변경·완료 선언을 보류한다.
-
-## 9. 구현 루프 상한
-
-유지보수 Issue의 `구현 루프 최대 횟수` 기본값은 **3회**다. 한 루프는 구현 또는 수정 후 `npm run verify`를 실행해 종료 조건을 확인하는 단위다. 지정된 횟수 안에 검증을 통과하지 못하면 AI는 추가 수정을 반복하지 않고 `NEEDS_HUMAN` 상태로 전환한다.
-
-`NEEDS_HUMAN`으로 전환할 때는 실패한 검증 단계, 실행 결과, 시도 횟수, 남은 미해결 사항, 사람에게 요청할 판단을 기록한다. 사람의 명시적 결정이 있기 전까지 해당 작업의 구현·문서 수정·데이터 변경·완료 선언을 보류한다. Issue에 기본값과 다른 상한이 명시되어 있고 SSOT와 충돌하지 않는 경우에만 그 값을 적용한다.
-
-## 10. 현재 한계와 비보장
-
-검증 규칙으로 판단할 수 없는 사항, 원본 간 충돌, 승인 범위가 불명확한 사항은 자동 통과시키지 않는다. 해당 상태는 `NEEDS_HUMAN`으로 보고하고, 사람의 판단 전까지 구현·문서 수정·데이터 변경·완료 선언을 보류한다.
-
-## 11. 현재 한계와 비보장
-
-검증 규칙으로 판단할 수 없는 사항, 원본 간 충돌, 승인 범위가 불명확한 사항은 자동 통과시키지 않는다. 해당 상태는 `NEEDS_HUMAN`으로 보고하고, 사람의 판단 전까지 구현·문서 수정·데이터 변경·완료 선언을 보류한다.
-
-## 12. 현재 한계와 비보장
-
-이 문서는 현재 하네스 골격의 실행 계약만 기록하며 다음을 보장한다고 주장하지 않는다.
-
-- SSOT 3 하네스 운영 규칙의 완성
-- 검증 실패 후 재탐색·수정·재검증 절차
-- 브라우저 기반 전체 QA
-- 외부 서비스·풀필먼트 API 검증
-- 세분화된 권한 운영 검증
-- Protected의 동적·별칭·raw SQL 우회 경로 전부 탐지
-- GitHub 저장소의 branch protection 필수 체크 설정
-
-Protected 승인 정책과 보호 경로의 권위는 [`01-ssot.md`](01-ssot.md)를 따른다. 구현과 문서가 다르면 차이를 숨기지 않고 보고한다.
+CI는 source head를 검증하고, PR event의 synthetic merge SHA를 승인 기준으로 사용하지 않는다. GitHub 저장소의 required check 설정 여부 자체는 저장소 설정이며 이 문서는 자동으로 보장하지 않는다.
