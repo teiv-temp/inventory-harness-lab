@@ -26,6 +26,7 @@
 | 사용자·업무 흐름 | [`docs/02-personas.md`](../02-personas.md), [`docs/03-scenarios.md`](../03-scenarios.md) |
 | UI·접근성·반응형 | [`docs/05-design.md`](../05-design.md) |
 | 기존 구현 계획·마일스톤 | [`docs/07-plan.md`](../07-plan.md) |
+| 구현·검증 반복·사람 개입 | [`03-loop.md`](03-loop.md) |
 | 설치·실행 안내 | [`README.md`](../../README.md) |
 
 ## 2. Protected 보호 경계와 권한

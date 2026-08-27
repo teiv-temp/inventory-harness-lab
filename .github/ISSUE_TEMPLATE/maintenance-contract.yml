@@ -17,7 +17,8 @@ body:
 
         - 요구사항: [SSOT 1](../../docs/01-requirements.md)
         - 아키텍처: [SSOT 2](../../docs/06-architecture.md)
-        - 하네스 검증 규칙: [SSOT 3](../../docs/harness/02-verification.md)
+        - 하네스 검증 판정: [SSOT 3 · 검증](../../docs/harness/02-verification.md)
+        - 구현·검증 반복 절차: [SSOT 3 · Loop](../../docs/harness/03-loop.md)
         - SSOT와 Issue가 충돌하면 `NEEDS_HUMAN`으로 보류합니다.
 
   - type: textarea
