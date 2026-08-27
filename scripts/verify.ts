@@ -41,7 +41,7 @@ try {
   const buildEnv = prepare(buildDirectory, baseEnv)
   run(npmRunner, ['run', 'build'], buildEnv)
 
-  console.log('\n✓ 검증 완료: Types → Lint → Test → Build')
+  console.log('\n✓ 검증 완료: Prepare → Types → Lint → Architecture Check → Test → Prepare → Build')
 } finally {
   rmSync(root, { recursive: true, force: true })
 }
